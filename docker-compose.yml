@@ -1,0 +1,58 @@
+services:
+  xterm_traefik:
+    image: traefik:v2.9
+    container_name: xterm_traefik
+    command:
+      - "--entrypoints.web.address=:${PUBLIC_PORT}"
+      - "--api.insecure=true"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ADMIN_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--providers.file.directory=/configuration/"
+      - "--providers.file.watch=true"
+      - "--accesslog=true"
+      - "--accesslog.filePath=/logs/access.log"
+    ports:
+      - "${BIND_INTERFACE}:${PUBLIC_PORT}:${PUBLIC_PORT}"
+    volumes:
+      - xterm_letsencrypt:/letsencrypt:rw
+      - ./app/traefik/dynamic.yml:/configuration/dynamic.yml:ro
+    env_file:
+      - .env
+    environment:
+      - MODE=${MODE:-DEVELOPMENT}
+
+  xterm_backend:
+    container_name: xterm_backend
+    cap_drop:
+      - ALL
+    build:
+      context: .
+      dockerfile: app/server/Dockerfile
+      args:
+        DOCKER_USER: "${DOCKER_USER}"
+        DOCKER_UID: "${DOCKER_UID}"
+        DOCKER_GID: "${DOCKER_GID}"
+        DOCKER_TZ: "${DOCKER_TZ}"
+    environment:
+      NODE_ENV: "${NODE_ENV}"
+      PORT: "3000"
+      SKYCHAT_HOST: "${SKYCHAT_HOST}"
+      SKYCHAT_PROTOCOL: "${SKYCHAT_PROTOCOL}"
+      SESSION_TIMEOUT_MS: "${SESSION_TIMEOUT_MS}"
+      JWT_SECRET: "${JWT_SECRET}"
+    volumes:
+      - ./data:/workdir/data:rw
+
+  xterm_frontend:
+    container_name: xterm_frontend
+    cap_drop:
+      - ALL
+    build:
+      context: .
+      dockerfile: app/client/Dockerfile
+    environment:
+      PUBLIC_URL: "${PUBLIC_URL}"
+
+volumes:
+  xterm_letsencrypt:

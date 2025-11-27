@@ -1,0 +1,53 @@
+http:
+  routers:
+    xterm_backend_api:
+      service: xterm_backend@file
+      entrypoints:
+        - web
+      middlewares:
+        - ratelimit-api
+      rule: "PathPrefix(`/api`)"
+
+    xterm_backend_ws:
+      service: xterm_backend@file
+      entrypoints:
+        - web
+      middlewares:
+        - ratelimit-ws
+      rule: "Path(`/terminal`)"
+
+    xterm_frontend:
+      service: xterm_frontend@file
+      entrypoints:
+        - web
+      middlewares:
+        - ratelimit-light
+      rule: "PathPrefix(`/`)"
+      priority: 1
+
+  middlewares:
+    ratelimit-light:
+      rateLimit:
+        average: 60
+        burst: 20
+
+    ratelimit-api:
+      rateLimit:
+        average: 30
+        burst: 10
+
+    ratelimit-ws:
+      rateLimit:
+        average: 10
+        burst: 5
+
+  services:
+    xterm_backend:
+      loadBalancer:
+        servers:
+          - url: "http://xterm_backend:3000"
+
+    xterm_frontend:
+      loadBalancer:
+        servers:
+          - url: "http://xterm_frontend:80"
